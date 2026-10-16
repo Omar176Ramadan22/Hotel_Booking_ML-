@@ -1,0 +1,43 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Python tooling
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Local secrets/config
+.env
+
+# Generated outputs
+outputs/figures/*
+outputs/tables/*
+outputs/results/*
+
+# Generated model artifacts
+artifacts/*
+
+# Keep folder structure
+!outputs/figures/.gitkeep
+!outputs/tables/.gitkeep
+!outputs/results/.gitkeep
+!artifacts/.gitkeep

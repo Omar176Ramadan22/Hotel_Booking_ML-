@@ -1,0 +1,12 @@
+# Central project configuration.
+# Keep task-specific settings here as the project develops.
+
+dataset:
+  path: data/H2.csv
+  name: City Hotel H2
+
+targets:
+  regression: ADR
+  classification: IsCanceled
+
+random_state: 42
