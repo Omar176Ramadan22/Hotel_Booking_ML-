@@ -1,16 +1,21 @@
-"""Load and clean the City Hotel (H2) dataset.
+"""Load and clean hotel booking data.
 
-Everything here is *task-independent* cleaning that is safe to do before the
-train/test split, because each step only looks at one row at a time (or at exact
-copies of a row) and never learns statistics from the data:
+The module has two kinds of rules:
 
-1. Strip padding whitespace from text columns   ('HB       ' -> 'HB').
-2. Turn the text "NULL" into a real missing value (Agent, Company).
-3. Drop exact duplicate rows                       (prevents train/test overlap).
-4. Drop invalid records                            (ADR outlier, zero-guest bookings).
+ROW-LEVEL rules -> `standardize_text`
+    Look at one booking at a time. They must run on the training data AND on
+    every new booking at prediction time, so the model always sees values in
+    the same format ('HB       ' -> 'HB', 'NULL' -> missing, Agent 9 -> '9').
 
-Things that DO learn from the data (imputation, encoding, scaling) are NOT done
-here. They belong in the preprocessing pipeline and are fitted on training data only.
+DATASET-LEVEL rules -> `load_raw`, `clean`
+    Only make sense for a whole training file: checking the file's shape,
+    removing duplicate rows, removing invalid records. They never run on a
+    single new booking.
+
+None of these rules learn anything from the data (no means, counts or
+scalers), so they are safe to apply before the train/test split. Anything
+that learns from data belongs in the preprocessing pipeline, fitted on the
+training set only.
 """
 
 from __future__ import annotations
@@ -30,31 +35,81 @@ EXPECTED_COLUMNS = [
     "DaysInWaitingList", "CustomerType", "ADR", "RequiredCarParkingSpaces",
     "TotalOfSpecialRequests", "ReservationStatus", "ReservationStatusDate",
 ]
-EXPECTED_ROWS = 79_330
+H2_ROWS = 79_330  # size of the published City Hotel file
 
 # Identifier columns: numbers that are names, not quantities. Keep them as text.
 ID_COLUMNS = ["Agent", "Company"]
-MISSING_TOKENS = ["NULL", ""]
+# Text markers that mean "no value" (compared case-insensitively after stripping).
+MISSING_TOKENS = {"null", "none", "nan", "na", "n/a", ""}
+GUEST_COLUMNS = ["Adults", "Children", "Babies"]
 
 
-def load_raw(path: str | Path) -> pd.DataFrame:
-    """Read H2.csv exactly as published and verify its schema."""
-    df = pd.read_csv(path, dtype={c: str for c in ID_COLUMNS})
-    missing_cols = set(EXPECTED_COLUMNS) - set(df.columns)
-    if missing_cols:
-        raise ValueError(f"H2.csv is missing columns: {sorted(missing_cols)}")
-    if len(df) != EXPECTED_ROWS:
-        raise ValueError(f"Expected {EXPECTED_ROWS:,} rows, found {len(df):,}")
-    return df[EXPECTED_COLUMNS]
+# --------------------------------------------------------------------------
+# Row-level rules: training data AND new bookings
+# --------------------------------------------------------------------------
+def standardize_text(data: pd.DataFrame | dict | list[dict]) -> pd.DataFrame:
+    """Put text values in one consistent format.
 
+    Accepts a DataFrame, one booking as a dict, or a list of dicts, so the same
+    function serves the training file and the prediction interface. Columns
+    that are not present are simply skipped.
+    """
+    if isinstance(data, dict):
+        df = pd.DataFrame([data])
+    elif isinstance(data, list):
+        df = pd.DataFrame(data)
+    else:
+        df = data.copy()
 
-def standardize_text(df: pd.DataFrame) -> pd.DataFrame:
-    """Strip padding spaces and convert the 'NULL' text marker to NaN."""
-    df = df.copy()
+    # IDs may arrive as numbers (9, 9.0) from a form or as text ('  9') from
+    # the CSV; turn both into the same text value.
+    for col in ID_COLUMNS:
+        if col in df.columns:
+            df[col] = df[col].map(_id_to_text)
+
     text_cols = df.select_dtypes(include=["object", "string"]).columns
     for col in text_cols:
-        df[col] = df[col].str.strip().replace(MISSING_TOKENS, pd.NA)
+        df[col] = df[col].map(_clean_text)
     return df
+
+
+def _clean_text(value):
+    if not isinstance(value, str):
+        return value
+    value = value.strip()
+    return pd.NA if value.lower() in MISSING_TOKENS else value
+
+
+def _id_to_text(value):
+    if pd.isna(value):
+        return pd.NA
+    if isinstance(value, float) and value.is_integer():
+        value = int(value)
+    return _clean_text(str(value))
+
+
+# --------------------------------------------------------------------------
+# Dataset-level rules: training file only
+# --------------------------------------------------------------------------
+def load_raw(
+    path: str | Path,
+    required_columns: list[str] | None = None,
+    expected_rows: int | None = None,
+) -> pd.DataFrame:
+    """Read a booking CSV and check that it has the columns we rely on.
+
+    `expected_rows` is optional: pass `H2_ROWS` to verify the official file;
+    leave it as None to load any other file with the same schema.
+    """
+    required = EXPECTED_COLUMNS if required_columns is None else required_columns
+    df = pd.read_csv(path, dtype={c: str for c in ID_COLUMNS})
+
+    missing_cols = [c for c in required if c not in df.columns]
+    if missing_cols:
+        raise ValueError(f"File is missing columns: {missing_cols}")
+    if expected_rows is not None and len(df) != expected_rows:
+        raise ValueError(f"Expected {expected_rows:,} rows, found {len(df):,}")
+    return df[required]
 
 
 def clean(
@@ -63,7 +118,11 @@ def clean(
     adr_max: float | None = 1000,
     drop_zero_guests: bool = True,
 ) -> tuple[pd.DataFrame, list[dict]]:
-    """Apply the cleaning rules and return (clean_df, log of what was removed)."""
+    """Apply the dataset-level rules and return (clean_df, log of removals).
+
+    Each rule is skipped when the columns it needs are absent, so the function
+    works on any subset of the schema. The input DataFrame is not modified.
+    """
     log: list[dict] = []
 
     def record(step: str, before: int, after: int) -> None:
@@ -72,27 +131,32 @@ def clean(
 
     n = len(df)
     df = standardize_text(df)
-    record("strip whitespace + NULL -> NaN", n, len(df))
+    record("strip whitespace + missing markers -> NaN", n, len(df))
 
     if drop_duplicates:
         n = len(df)
         df = df.drop_duplicates()
         record("drop exact duplicate rows", n, len(df))
 
-    if adr_max is not None:
+    if adr_max is not None and "ADR" in df.columns:
         n = len(df)
-        df = df[df["ADR"] <= adr_max]
+        df = df[df["ADR"].isna() | (df["ADR"] <= adr_max)]
         record(f"drop ADR > {adr_max}", n, len(df))
 
-    if drop_zero_guests:
+    present_guests = [c for c in GUEST_COLUMNS if c in df.columns]
+    if drop_zero_guests and present_guests:
         n = len(df)
-        guests = df[["Adults", "Children", "Babies"]].fillna(0).sum(axis=1)
+        guests = df[present_guests].fillna(0).sum(axis=1)
         df = df[guests > 0]
         record("drop bookings with zero guests", n, len(df))
 
     return df.reset_index(drop=True), log
 
 
-def load_clean(path: str | Path, **clean_options) -> tuple[pd.DataFrame, list[dict]]:
-    """One call used by every task: read, verify, clean."""
-    return clean(load_raw(path), **clean_options)
+def load_clean(
+    path: str | Path,
+    expected_rows: int | None = None,
+    **clean_options,
+) -> tuple[pd.DataFrame, list[dict]]:
+    """Read, check and clean a training file in one call."""
+    return clean(load_raw(path, expected_rows=expected_rows), **clean_options)
