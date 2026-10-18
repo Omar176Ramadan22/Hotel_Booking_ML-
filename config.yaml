@@ -5,8 +5,17 @@ dataset:
   path: data/H2.csv
   name: City Hotel H2
 
+# Task-independent cleaning applied before any split (see src/data/load.py).
+cleaning:
+  drop_duplicates: true     # 25,902 exact copies; prevents train/test overlap
+  adr_max: 1000             # removes the single ADR = 5400 record
+  drop_zero_guests: true    # bookings with 0 adults, children and babies
+
 targets:
   regression: ADR
   classification: IsCanceled
+
+outputs:
+  dir: outputs
 
 random_state: 42
