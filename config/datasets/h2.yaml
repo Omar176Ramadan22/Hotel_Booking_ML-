@@ -1,0 +1,32 @@
+dataset: H2 City Hotel
+
+raw_path: data/H2.csv
+clean_path: outputs/data/H2_clean.csv
+report_path: outputs/tables/h2_cleaning_report.json
+
+generic:
+  trim_whitespace: true
+  missing_markers:
+    - ""
+    - "na"
+    - "n/a"
+    - "nan"
+    - "null"
+    - "none"
+  drop_duplicates: true
+
+dataset_rules:
+  - name: adr_outliers
+    column: ADR
+    min_value: 0
+    max_value: 1000
+    action: drop
+  - name: invalid_guest_count
+    columns:
+      - Adults
+      - Children
+      - Babies
+  - name: zero_night_stays
+    columns:
+      - StaysInWeekendNights
+      - StaysInWeekNights
