@@ -13,6 +13,20 @@ cleaning:
   drop_zero_nights: true    # 0 nights -> ADR (rate per night) is undefined; all 231 have ADR = 0
   babies_max: 3             # removes 2 entry errors (9 and 10 babies on a 1-2 adult booking)
 
+# One split for all tasks, made right after cleaning (see src/features/split.py).
+# The test set is used only for the final evaluation; tuning uses CV on train.
+split:
+  test_size: 0.2            # 42,432 train / 10,608 test bookings
+  stratify: IsCanceled      # same ~30% cancellation rate in both parts
+  cv_folds: 5               # stratified for classification, plain KFold for regression
+
+# Never model inputs (see src/features/pipeline.py for the evidence).
+leakage_columns:
+  - ReservationStatus       # is the answer: Canceled/No-Show exactly when IsCanceled = 1
+  - ReservationStatusDate   # set after the booking ends
+  - AssignedRoomType        # given at check-in; a changed room means the guest arrived
+  - BookingChanges          # final count up to check-in/cancellation, not known at booking
+
 targets:
   regression: ADR
   classification: IsCanceled
