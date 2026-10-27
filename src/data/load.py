@@ -42,6 +42,9 @@ ID_COLUMNS = ["Agent", "Company"]
 # Text markers that mean "no value" (compared case-insensitively after stripping).
 MISSING_TOKENS = {"null", "none", "nan", "na", "n/a", ""}
 GUEST_COLUMNS = ["Adults", "Children", "Babies"]
+NIGHT_COLUMNS = ["StaysInWeekendNights", "StaysInWeekNights"]
+# Columns where the category 'Undefined' is a missing value, not a real group.
+UNDEFINED_COLUMNS = ["MarketSegment", "DistributionChannel"]
 
 
 # --------------------------------------------------------------------------
@@ -70,6 +73,10 @@ def standardize_text(data: pd.DataFrame | dict | list[dict]) -> pd.DataFrame:
     text_cols = df.select_dtypes(include=["object", "string"]).columns
     for col in text_cols:
         df[col] = df[col].map(_clean_text)
+
+    for col in UNDEFINED_COLUMNS:
+        if col in df.columns:
+            df[col] = df[col].mask(df[col] == "Undefined", pd.NA)
     return df
 
 
@@ -117,6 +124,8 @@ def clean(
     drop_duplicates: bool = True,
     adr_max: float | None = 1000,
     drop_zero_guests: bool = True,
+    drop_zero_nights: bool = True,
+    babies_max: int | None = 3,
 ) -> tuple[pd.DataFrame, list[dict]]:
     """Apply the dataset-level rules and return (clean_df, log of removals).
 
@@ -149,6 +158,20 @@ def clean(
         guests = df[present_guests].fillna(0).sum(axis=1)
         df = df[guests > 0]
         record("drop bookings with zero guests", n, len(df))
+
+    # ADR is revenue divided by nights, so a stay of zero nights has no real
+    # daily rate (all of them have ADR = 0 in H2).
+    present_nights = [c for c in NIGHT_COLUMNS if c in df.columns]
+    if drop_zero_nights and present_nights:
+        n = len(df)
+        nights = df[present_nights].fillna(0).sum(axis=1)
+        df = df[nights > 0]
+        record("drop bookings with zero nights", n, len(df))
+
+    if babies_max is not None and "Babies" in df.columns:
+        n = len(df)
+        df = df[df["Babies"].isna() | (df["Babies"] <= babies_max)]
+        record(f"drop Babies > {babies_max}", n, len(df))
 
     return df.reset_index(drop=True), log
 
