@@ -92,6 +92,29 @@ def test_clean_skips_rules_when_columns_are_absent():
     assert len(out) == 4  # only the duplicate is removed
 
 
+def test_undefined_category_becomes_missing():
+    out = standardize_text({"MarketSegment": "Undefined", "DistributionChannel": "TA/TO",
+                            "Meal": "Undefined"})
+    assert pd.isna(out.loc[0, "MarketSegment"])
+    assert out.loc[0, "DistributionChannel"] == "TA/TO"
+    assert out.loc[0, "Meal"] == "Undefined"  # only the listed columns change
+
+
+def test_clean_removes_zero_night_stays_and_impossible_babies():
+    df = pd.DataFrame({
+        "StaysInWeekendNights": [0, 1, 0, 2],
+        "StaysInWeekNights":    [0, 0, 3, 1],
+        "Adults":               [2, 2, 2, 2],
+        "Babies":               [0, 0, 10, 1],
+        "ADR":                  [0.0, 90.0, 80.0, 70.0],
+    })
+    out, log = clean(df)
+    assert out["ADR"].tolist() == [90.0, 70.0]
+    removed = {row["step"]: row["rows_removed"] for row in log}
+    assert removed["drop bookings with zero nights"] == 1
+    assert removed["drop Babies > 3"] == 1
+
+
 def test_load_raw_reports_missing_columns(tmp_path):
     path = tmp_path / "bad.csv"
     pd.DataFrame({"LeadTime": [1]}).to_csv(path, index=False)
@@ -107,3 +130,6 @@ def test_real_h2_file():
     df, _ = load_clean(DATA, expected_rows=H2_ROWS)
     assert df["Agent"].isna().sum() > 0
     assert not df.duplicated().any()
+    assert len(df) == 53_040
+    assert (df["StaysInWeekendNights"] + df["StaysInWeekNights"]).min() > 0
+    assert not (df["MarketSegment"] == "Undefined").any()

@@ -10,6 +10,8 @@ cleaning:
   drop_duplicates: true     # 25,902 exact copies; prevents train/test overlap
   adr_max: 1000             # removes the single ADR = 5400 record
   drop_zero_guests: true    # bookings with 0 adults, children and babies
+  drop_zero_nights: true    # 0 nights -> ADR (rate per night) is undefined; all 231 have ADR = 0
+  babies_max: 3             # removes 2 entry errors (9 and 10 babies on a 1-2 adult booking)
 
 targets:
   regression: ADR
