@@ -107,3 +107,39 @@ def test_real_h2_file():
     df, _ = load_clean(DATA, expected_rows=H2_ROWS)
     assert df["Agent"].isna().sum() > 0
     assert not df.duplicated().any()
+
+
+# ---- zero-night stays and ADR floor -----------------------------------------
+def test_zero_night_bookings_are_dropped():
+    df = pd.DataFrame({
+        "StaysInWeekendNights": [0, 1, 0, 0],
+        "StaysInWeekNights":    [0, 0, 2, 0],
+        "ADR": [80.0, 90.0, 100.0, 70.0],
+    })
+    out, log = clean(df)
+    assert len(out) == 2
+    assert {r["step"]: r["rows_removed"] for r in log}["drop bookings with zero nights"] == 2
+
+
+def test_zero_nights_rule_can_be_switched_off():
+    df = pd.DataFrame({"StaysInWeekendNights": [0], "StaysInWeekNights": [0], "ADR": [80.0]})
+    assert len(clean(df, drop_zero_nights=False)[0]) == 1
+
+
+def test_negative_adr_is_dropped_but_zero_adr_is_kept():
+    out, _ = clean(pd.DataFrame({"ADR": [-5.0, 0.0, 120.0]}))
+    assert out["ADR"].tolist() == [0.0, 120.0]
+
+
+# ---- the two cleaning paths must agree ----------------------------------------
+@pytest.mark.skipif(not DATA.exists(), reason="data/H2.csv not available")
+def test_yaml_cleaning_and_load_cleaning_give_the_same_rows():
+    """notebooks use src/preprocessing/cleaning.py, models use src/data/load.py."""
+    from src.preprocessing.cleaning import clean_from_description
+    root = Path(__file__).resolve().parents[1]
+    a, _ = load_clean(DATA)
+    b, _ = clean_from_description("config/datasets/h2.yaml", project_root=root, save=False)
+    assert len(a) == len(b)
+    assert a["ADR"].sum() == pytest.approx(b["ADR"].sum())
+    assert a["IsCanceled"].sum() == b["IsCanceled"].sum()
+    assert a["LeadTime"].sum() == b["LeadTime"].sum()

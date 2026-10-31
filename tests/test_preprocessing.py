@@ -10,7 +10,7 @@ from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.model_selection import cross_val_score
 
 from src.data.load import load_clean
-from src.data.split import make_split
+from src.data.split import make_split, regression_population
 from src.features import BookingFeatureBuilder, feature_columns, forbidden_columns
 from src.preprocessing import build_model_pipeline, build_preprocessor
 
@@ -196,6 +196,58 @@ def test_split_is_reproducible_stratified_and_keeps_target_out_of_X():
     pd.testing.assert_frame_equal(a[0], b[0])
     assert "IsCanceled" not in a[0]
     assert abs(a[2].mean() - a[3].mean()) < 0.05
+
+
+# ---- regression population (paid bookings only) ------------------------------
+def _with_free_rooms():
+    df = pd.concat([make_bookings()] * 4, ignore_index=True)
+    df.loc[df.index % 10 == 0, "ADR"] = 0.0           # 10% complimentary stays
+    return df
+
+
+def test_regression_split_contains_paid_bookings_only():
+    df = _with_free_rooms()
+    X_tr, X_te, y_tr, y_te = make_split(df, "regression")
+    assert (y_tr > 0).all() and (y_te > 0).all()
+    assert len(y_tr) + len(y_te) == int((df["ADR"] > 0).sum())
+    assert "ADR" not in X_tr
+
+
+def test_filter_is_applied_before_splitting_and_is_switchable():
+    df = _with_free_rooms()
+    kept = make_split(df, "regression", paid_bookings_only=False)
+    assert len(kept[2]) + len(kept[3]) == len(df)
+
+
+def test_classification_keeps_free_bookings():
+    df = _with_free_rooms()
+    X_tr, X_te, _, _ = make_split(df, "classification")
+    assert len(X_tr) + len(X_te) == len(df)
+    assert ((pd.concat([X_tr, X_te])["ADR"]) == 0).any()
+
+
+def test_regression_population_helper():
+    assert regression_population(_with_free_rooms())["ADR"].min() > 0
+
+
+# ---- defaults ------------------------------------------------------------------
+def test_pipeline_defaults_to_top_20_agents_and_can_be_switched_off():
+    df = make_bookings()
+    X = df.drop(columns=["ADR"])
+    assert build_preprocessor("regression").named_steps["features"].top_n_agents == 20
+    assert build_preprocessor("regression", top_n_agents=0).named_steps["features"].top_n_agents == 0
+    assert any("AgentTop" in c for c in build_preprocessor("regression").fit(X)
+               .named_steps["encode"].get_feature_names_out())
+
+
+# ---- XGBoost (required boosting model) works with the pipeline -------------------
+def test_xgboost_runs_inside_the_pipeline():
+    xgboost = pytest.importorskip("xgboost")
+    df = make_bookings()
+    X, y = df.drop(columns=["ADR"]), df["ADR"]
+    pipe = build_model_pipeline("regression", xgboost.XGBRegressor(n_estimators=5, random_state=0),
+                                scale=False)
+    assert np.isfinite(pipe.fit(X, y).predict(X)).all()
 
 
 # ---- real H2 file -----------------------------------------------------------
