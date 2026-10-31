@@ -27,9 +27,12 @@ from src.features.booking_features import BookingFeatureBuilder
 from src.features.columns import feature_columns
 
 
+DEFAULT_TOP_N_AGENTS = 20
+
+
 def build_preprocessor(
     task: str,
-    top_n_agents: int = 0,
+    top_n_agents: int = DEFAULT_TOP_N_AGENTS,
     scale: bool = True,
     include_borderline: bool = False,
     min_category_freq: int = 50,
@@ -38,6 +41,8 @@ def build_preprocessor(
 
     scale=True for distance/gradient models (Linear/Ridge, KNN, SVM, MLP);
     scale=False for tree models, which do not need it.
+    top_n_agents: keep the N most frequent agents (learned on training data only),
+    pool the rest as 'Other'; default 20. Use 0 for the flag-only baseline.
     min_category_freq: categories seen fewer times than this in training (e.g.
     rare countries) are pooled into one 'infrequent' column; categories never
     seen in training are pooled there too instead of crashing at inference.
