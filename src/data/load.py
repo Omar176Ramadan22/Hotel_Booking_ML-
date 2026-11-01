@@ -71,6 +71,11 @@ def standardize_text(data: pd.DataFrame | dict | list[dict]) -> pd.DataFrame:
     text_cols = df.select_dtypes(include=["object", "string"]).columns
     for col in text_cols:
         df[col] = df[col].map(_clean_text)
+    # pandas may infer different dtypes when an ID column becomes all missing.
+    # Keep the documented text identifiers stable across repeated cleaning.
+    for col in ID_COLUMNS:
+        if col in df:
+            df[col] = df[col].astype(object).where(df[col].notna(), pd.NA)
     return df
 
 

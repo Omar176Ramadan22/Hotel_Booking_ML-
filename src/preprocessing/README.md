@@ -27,8 +27,8 @@ rules; `tests/test_load.py` checks both paths return identical data (53,042 rows
 
 ## Regression population
 
-Regression uses **paid bookings only (ADR > 0)**. The ~1.8% of bookings with `ADR = 0`
-(mostly complimentary stays) are priced by policy, not by the market. `make_split`
+Regression uses **paid bookings only (ADR > 0)**. There are 722 zero-ADR bookings
+(1.361% of cleaned H2); complimentary stays are one possible explanation, not a verified label. `make_split`
 applies the filter *before* splitting, so train and test describe the same population.
 Classification keeps every booking. Switch off with `make_split(..., paid_bookings_only=False)`.
 
@@ -48,6 +48,12 @@ Required fields missing from a new booking raise a clear error on purpose.
 ## Options
 
 * `scale` - StandardScaler on numeric columns (not needed for tree models).
-* `top_n_agents` - default **20** (best result in validation checks); 0 = flag-only baseline for comparison.
+* `top_n_agents` - existing default **20**; 0 = flag-only baseline for comparison. No model validation of this choice was performed in the data audit.
 * `include_borderline` - adds `RequiredCarParkingSpaces`, `TotalOfSpecialRequests` for the leakage ablation.
 * `min_category_freq` - rare category threshold for one-hot encoding.
+
+For regression, prefer `prepare_regression_data()` from `src.data.preparation`
+to consume the central config and reuse grouped holdout/CV assignments across
+models. Group keys precede learned top-agent/rare-category pooling. Group overlap
+is zero; the current pooling still causes 23 encoded test inputs to match training
+inputs. See `outputs/reports/data_preparation_audit.md` for this remaining TA decision.

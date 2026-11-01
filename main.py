@@ -36,6 +36,11 @@ def main() -> None:
         parser.print_help()
         return
 
+    if args.command == "analyze":
+        from src.data.audit import generate_report
+        print(generate_report())
+        return
+
     print(
         f"Command '{args.command}' is scaffolded but not implemented yet. "
         "Implementation will be added incrementally."

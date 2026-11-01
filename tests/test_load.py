@@ -68,6 +68,14 @@ def test_input_is_not_modified():
     pd.testing.assert_frame_equal(df, before)
 
 
+def test_cleaning_is_deterministic_and_idempotent():
+    a, log_a = clean(make_bookings())
+    b, log_b = clean(make_bookings())
+    pd.testing.assert_frame_equal(a, b)
+    assert log_a == log_b
+    pd.testing.assert_frame_equal(a, clean(a)[0])
+
+
 # ---- dataset-level rules ---------------------------------------------------
 def test_clean_removes_duplicates_outliers_and_empty_bookings():
     out, log = clean(make_bookings())
@@ -143,3 +151,7 @@ def test_yaml_cleaning_and_load_cleaning_give_the_same_rows():
     assert a["ADR"].sum() == pytest.approx(b["ADR"].sum())
     assert a["IsCanceled"].sum() == b["IsCanceled"].sum()
     assert a["LeadTime"].sum() == b["LeadTime"].sum()
+    # Compare every normalized value in row order, including missingness/IDs.
+    pd.testing.assert_frame_equal(standardize_text(a), standardize_text(b), check_dtype=False)
+    assert len(a) == 53_042
+    assert (a["ADR"] > 0).sum() == 52_320

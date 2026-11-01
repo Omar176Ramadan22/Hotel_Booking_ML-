@@ -15,10 +15,13 @@ cleaning:
                             # and handled per task, see regression below)
 
 # Regression is trained and evaluated on PAID bookings only (ADR > 0).
-# ADR = 0 rows (~1.8%, mostly complimentary stays) are priced by policy, not by
-# the market. Classification keeps them. Applied in src/data/split.py BEFORE the split.
+# ADR = 0 rows (722 / 53,042 cleaned rows, 1.361%) are excluded by team policy;
+# complimentary stays are one possible explanation, not a verified label.
+# Classification keeps them. Applied in src/data/split.py BEFORE the split.
 regression:
   paid_bookings_only: true
+  split_strategy: group_shuffle
+  test_size: 0.2
 
 targets:
   regression: ADR
@@ -28,3 +31,24 @@ outputs:
   dir: outputs
 
 random_state: 42
+
+# Shared cross-validation settings
+cv:
+  n_splits: 5
+  # Regression uses deterministic GroupKFold (no shuffling).
+  # Retained for future classification CV; unused by regression GroupKFold.
+  shuffle: true
+  random_state: 42
+
+# Hyperparameter tuning settings
+tuning:
+  cv_folds: 3
+  n_iter:
+    decision_tree: 30
+    random_forest: 15
+    xgboost: 40
+    ridge: 20
+  subsample_rows:
+    knn: 15000
+    svr: 8000
+

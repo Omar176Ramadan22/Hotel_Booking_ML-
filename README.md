@@ -120,7 +120,38 @@ The notebook is for exploration. The final implementation will live under `src/`
 
 ## Main application
 
-The final project will expose functionality through `main.py`. Exact commands will be added as the implementation develops.
+The shared regression data foundation is implemented without model experiments:
+
+```powershell
+.venv\Scripts\python.exe -m pytest -q --junitxml=outputs/reports/pytest_results.xml
+.venv\Scripts\python.exe main.py analyze
+```
+
+The audit is written to `outputs/reports/data_preparation_audit.md`. It includes
+the cleaning and feature decisions, grouped holdout/CV checks, historical random
+split investigation, and remaining TA decisions. `python -m src.data.audit` also
+regenerates it. The audit fits preprocessing only, with no predictive estimator.
+
+All future regression models should reuse one preparation object:
+
+```python
+from src.data.preparation import prepare_regression_data
+
+prepared = prepare_regression_data("config.yaml")
+# prepared.X_train / y_train, X_test / y_test, groups_train / groups_test
+# Reuse prepared.baseline_cv (5 folds) and prepared.tuning_cv (3 folds).
+# Fit the entire preprocessing/model pipeline within each training CV fold.
+```
+
+The central configuration controls cleaning, paid-booking restriction, holdout
+fraction, seed, grouped split strategy, and fold counts. Groups use normalized
+flag-only allowed regression inputs before learned transformations; no ADR or
+outcome fields enter the keys. AgentTop remains learned within training only.
+Group overlap is zero. Rare-category pooling can still merge distinct groups into
+identical encoded vectors (23 test rows with the current defaults); see the audit
+before interpreting this as a stronger encoded-input separation guarantee.
+
+Other application commands remain scaffolds for future implementation.
 
 Planned examples:
 

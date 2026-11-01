@@ -41,3 +41,5 @@ artifacts/*
 !outputs/tables/.gitkeep
 !outputs/results/.gitkeep
 !artifacts/.gitkeep
+# Cleaned dataset written by the YAML cleaning step (large, regenerable)
+outputs/data/
