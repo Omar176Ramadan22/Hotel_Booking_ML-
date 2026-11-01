@@ -1,0 +1,48 @@
+# clustering_experiments.yaml
+# Change this file to run different tests. You do NOT need to change the Python code.
+
+# The file made by inspect_and_clean_h2.py (it has ALL columns).
+# If you run from the notebooks/ folder, use "../data/processed/h2_clean_all_columns.csv"
+data_file: "data/processed/h2_clean_all_columns.csv"
+
+random_seed: 42          # same number = same results every time
+number_of_clusters: 4    # K-Means will make this many groups
+
+# The columns every experiment starts with
+base_columns:
+  - LeadTime
+  - ArrivalDateMonth
+  - ArrivalWeekday
+  - StaysInWeekendNights
+  - StaysInWeekNights
+  - Adults
+  - Children
+  - Babies
+  - Meal
+  - MarketSegment
+  - DistributionChannel
+  - IsRepeatedGuest
+  - PreviousCancellations
+  - PreviousBookingsNotCanceled
+  - ReservedRoomType
+  - CustomerType
+  - ADR
+  - TotalOfSpecialRequests
+  - WasWaitlisted
+
+# Each experiment = a name + columns to add + columns to remove (both are optional)
+experiments:
+  baseline:
+    # nothing changes: uses base_columns exactly
+
+  without_waiting_info:
+    remove: [WasWaitlisted]
+
+  with_waiting_days:
+    remove: [WasWaitlisted]
+    add: [DaysInWaitingList]
+
+  with_deposit_and_parking:
+    add: [DepositType, RequiredCarParkingSpaces]
+
+   
