@@ -10,6 +10,15 @@ cleaning:
   drop_duplicates: true     # 25,902 exact copies; prevents train/test overlap
   adr_max: 1000             # removes the single ADR = 5400 record
   drop_zero_guests: true    # bookings with 0 adults, children and babies
+  drop_zero_nights: true    # 231 bookings with 0 weekend + 0 week nights (no stay)
+  adr_min: 0                # drops negative ADR (none in H2; ADR = 0 is kept here
+                            # and handled per task, see regression below)
+
+# Regression is trained and evaluated on PAID bookings only (ADR > 0).
+# ADR = 0 rows (~1.8%, mostly complimentary stays) are priced by policy, not by
+# the market. Classification keeps them. Applied in src/data/split.py BEFORE the split.
+regression:
+  paid_bookings_only: true
 
 targets:
   regression: ADR

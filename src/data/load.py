@@ -42,6 +42,7 @@ ID_COLUMNS = ["Agent", "Company"]
 # Text markers that mean "no value" (compared case-insensitively after stripping).
 MISSING_TOKENS = {"null", "none", "nan", "na", "n/a", ""}
 GUEST_COLUMNS = ["Adults", "Children", "Babies"]
+NIGHT_COLUMNS = ["StaysInWeekendNights", "StaysInWeekNights"]
 
 
 # --------------------------------------------------------------------------
@@ -117,6 +118,8 @@ def clean(
     drop_duplicates: bool = True,
     adr_max: float | None = 1000,
     drop_zero_guests: bool = True,
+    drop_zero_nights: bool = True,
+    adr_min: float | None = 0,
 ) -> tuple[pd.DataFrame, list[dict]]:
     """Apply the dataset-level rules and return (clean_df, log of removals).
 
@@ -143,12 +146,27 @@ def clean(
         df = df[df["ADR"].isna() | (df["ADR"] <= adr_max)]
         record(f"drop ADR > {adr_max}", n, len(df))
 
+    if adr_min is not None and "ADR" in df.columns:
+        n = len(df)
+        df = df[df["ADR"].isna() | (df["ADR"] >= adr_min)]
+        record(f"drop ADR < {adr_min}", n, len(df))
+
     present_guests = [c for c in GUEST_COLUMNS if c in df.columns]
     if drop_zero_guests and present_guests:
         n = len(df)
         guests = df[present_guests].fillna(0).sum(axis=1)
         df = df[guests > 0]
         record("drop bookings with zero guests", n, len(df))
+
+    # A booking with 0 weekend AND 0 week nights has no stay, so a *per-night*
+    # rate is meaningless for it. Matches the `zero_night_stays` rule in
+    # config/datasets/h2.yaml so both cleaning paths give the same rows.
+    present_nights = [c for c in NIGHT_COLUMNS if c in df.columns]
+    if drop_zero_nights and present_nights:
+        n = len(df)
+        nights = df[present_nights].fillna(0).sum(axis=1)
+        df = df[nights > 0]
+        record("drop bookings with zero nights", n, len(df))
 
     return df.reset_index(drop=True), log
 
