@@ -1,0 +1,12 @@
+{
+  "model": "ridge",
+  "stage": "tuned",
+  "rows": 41867,
+  "pooled_training_cv_metrics": {
+    "MAE": 13.63412128987653,
+    "MSE": 391.2845166610529,
+    "RMSE": 19.780912938008015,
+    "R2": 0.7505514622099234
+  },
+  "negative_predictions": 4
+}

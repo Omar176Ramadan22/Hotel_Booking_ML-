@@ -4,6 +4,24 @@ CSE382 — Introduction to Machine Learning
 
 This repository contains the team's end-to-end machine learning project using the **City Hotel (H2)** Hotel Booking Demand dataset.
 
+## Repository and submission revision
+
+GitHub repository: https://github.com/Omar176Ramadan22/Hotel_Booking_ML-
+
+Branch for review: `ridge-regression`.
+
+Frozen implementation commit: [`4e9581b27aaabd47b93fed257dd5759a6ac06a60`](https://github.com/Omar176Ramadan22/Hotel_Booking_ML-/commit/4e9581b27aaabd47b93fed257dd5759a6ac06a60). The following documentation commit records this revision without changing code or saved results.
+
+Submitted ZIP commit (expanded by `git archive`): `$Format:%H$`
+
+Create the submission from the reviewed commit with Git so only tracked source, documentation, and evaluation outputs are included:
+
+```powershell
+git archive --format=zip --output=../Hotel_Booking_submission.zip HEAD
+```
+
+The tracked `.gitattributes` rule substitutes the exact archived commit SHA into this README in that ZIP. Trained artifacts and `work/` are untracked and excluded. Keep regenerated artifacts available locally for the live discussion.
+
 ## Required tasks
 
 - ADR regression
@@ -37,7 +55,7 @@ hotel-booking-ml/
 │   ├── H2.csv
 │   └── README.md
 ├── notebooks/
-│   └── 01_eda.ipynb
+│   └── 01_data_understanding_cleaning_fixed.ipynb
 ├── src/
 │   ├── data/
 │   ├── preprocessing/
@@ -58,27 +76,11 @@ hotel-booking-ml/
 
 ## Current status
 
-### Milestone 1 — Data preparation and initial baseline experiments
-- [x] Repository structure created
-- [x] H2 dataset added
-- [x] Initial EDA notebook created
-- [ ] Data-quality analysis completed
-- [ ] Preprocessing strategy finalized
-- [ ] Feature engineering finalized
-- [ ] Baseline experiments completed
+Ridge is finished and frozen: baseline/tuned models, CV/test tables, diagnostics, input validation, saved-model prediction, and recipe-based refitting. The test suite passes 136 tests. Existing XGBoost baseline/tuned experiments are also recorded in the regression CSVs.
 
-### Milestone 2 — Complete final project
-- [ ] Regression models
-- [ ] Classification models
-- [ ] Clustering
-- [ ] Dimensionality reduction where justified
-- [ ] Hyperparameter tuning
-- [ ] Model comparison
-- [ ] Leakage audit
-- [ ] Saved inference artifacts
-- [ ] Final application
-- [ ] Tests
-- [ ] Final report and presentation
+Read [the Ridge report](outputs/reports/ridge_model_report.md) for the baseline/tuned comparison, leakage audit, evaluation history, limitations, and team proposals. The test set was previously inspected; it is not a blind holdout. Do not change Ridge code, settings, artifacts, or results to improve its score.
+
+PCA is deferred. Its later separate experiment must fit PCA inside training-fold pipelines, use the frozen CV folds, preserve existing files, and avoid test-set scoring. Classification/LDA, clustering, a third regression model, the complete comparison/selection process, and the final report/presentation remain team work.
 
 ## Environment setup
 
@@ -113,58 +115,46 @@ pip install -r requirements.txt
 Open the repository in VS Code and launch:
 
 ```text
-notebooks/01_eda.ipynb
+notebooks/01_data_understanding_cleaning_fixed.ipynb
 ```
 
 The notebook is for exploration. The final implementation will live under `src/`; the project specification does not accept a notebook-only solution.
 
 ## Main application
 
-The shared regression data foundation is implemented without model experiments:
+From the repository root, check the dataset and tests:
 
 ```powershell
-.venv\Scripts\python.exe -m pytest -q --junitxml=outputs/reports/pytest_results.xml
-.venv\Scripts\python.exe main.py analyze
+python main.py analyze
+python -m pytest -q
 ```
 
-The audit is written to `outputs/reports/data_preparation_audit.md`. It includes
-the cleaning and feature decisions, grouped holdout/CV checks, historical random
-split investigation, and remaining TA decisions. `python -m src.data.audit` also
-regenerates it. The audit fits preprocessing only, with no predictive estimator.
+On a fresh clone, regenerate both frozen Ridge pipelines and their matching bounds files without a search or evaluation:
 
-All future regression models should reuse one preparation object:
+```powershell
+python main.py refit --task regression --model ridge
+python main.py predict --task regression --model ridge --input data/example_booking.json
+```
+
+For interactive entry, omit `--input`. Predictions load saved artifacts; they do not retrain. Inputs outside training bounds are rejected, as are unseen categories. The interface normalizes the supported categorical fields and validates arrival dates/weeks. Years after 2017 are currently rejected; alternatives in the report are proposals, not implemented policies.
+
+`train` and `tune` reject frozen Ridge; batch `--model all` skips it. Use `refit` to reproduce its artifacts. Existing Ridge CV/test outputs and diagnostic figures are checked in; do not rerun evaluation or diagnostics to overwrite these frozen results.
+
+XGBoost training/tuning/evaluation is implemented separately. Classification and clustering CLI tasks remain scaffolds even where teammates have exploratory notebooks/configuration.
+
+Every later regression model should reuse the shared preparation:
 
 ```python
 from src.data.preparation import prepare_regression_data
 
 prepared = prepare_regression_data("config.yaml")
-# prepared.X_train / y_train, X_test / y_test, groups_train / groups_test
-# Reuse prepared.baseline_cv (5 folds) and prepared.tuning_cv (3 folds).
-# Fit the entire preprocessing/model pipeline within each training CV fold.
+# Use X_train/y_train and the frozen grouped folds for fitting and selection.
+# baseline_cv has 5 folds; tuning_cv has 3 folds for future unfrozen searches.
 ```
 
-The central configuration controls cleaning, paid-booking restriction, holdout
-fraction, seed, grouped split strategy, and fold counts. Groups use normalized
-flag-only allowed regression inputs before learned transformations; no ADR or
-outcome fields enter the keys. AgentTop remains learned within training only.
-Group overlap is zero. Rare-category pooling can still merge distinct groups into
-identical encoded vectors (23 test rows with the current defaults); see the audit
-before interpreting this as a stronger encoded-input separation guarantee.
+The historical tuned Ridge used five folds for both search and reporting; it did not use the later 3/5 protocol. Groups exclude targets/outcomes and use permitted inputs before learned transforms. Learned medians, category lists, agent lists, and scaling stay inside the modeling pipeline.
 
-Other application commands remain scaffolds for future implementation.
-
-Planned examples:
-
-```bash
-python main.py analyze
-python main.py train --task regression
-python main.py train --task classification
-python main.py tune --task regression
-python main.py evaluate
-python main.py cluster
-python main.py predict --task regression
-python main.py predict --task classification
-```
+The earlier [data-preparation audit](outputs/reports/data_preparation_audit.md) is retained as historical context. Current model status and evaluation limitations are documented in [the Ridge report](outputs/reports/ridge_model_report.md).
 
 ## Team contributions
 

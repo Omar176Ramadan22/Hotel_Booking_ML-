@@ -1,19 +1,16 @@
-"""Configuration-driven, model-free shared regression preparation."""
-
 from dataclasses import dataclass
 from pathlib import Path
 import math
-
 import pandas as pd
 import yaml
-
 from src.data.groups import regression_group_ids
 from src.data.load import load_clean
 from src.data.split import grouped_cv_folds, make_split
 
 
+# Duplicate YAML keys must fail instead of silently replacing experiment settings.
 class UniqueKeyLoader(yaml.SafeLoader):
-    """Reject duplicate YAML keys rather than silently overwriting settings."""
+    pass
 
 
 def _unique_mapping(loader, node, deep=False):
@@ -32,17 +29,31 @@ UniqueKeyLoader.add_constructor(yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, 
 def load_config(path="config.yaml"):
     with Path(path).open(encoding="utf-8") as stream:
         cfg = yaml.load(stream, Loader=UniqueKeyLoader)
-    if not isinstance(cfg, dict):
-        raise ValueError("Configuration must be a mapping")
+    return validate_config(cfg)
+
+
+def validate_config(cfg):
+    required = {
+        "dataset",
+        "cleaning",
+        "regression",
+        "targets",
+        "outputs",
+        "random_state",
+        "cv",
+        "tuning",
+    }
+    if not isinstance(cfg, dict) or not required <= cfg.keys():
+        raise ValueError("Missing configuration sections; check config.yaml")
     try:
         seed = cfg["random_state"]
         size = cfg["regression"]["test_size"]
         paid = cfg["regression"]["paid_bookings_only"]
-        strategy = cfg["regression"]["split_strategy"]
-        folds = [cfg["cv"]["n_splits"], cfg["tuning"]["cv_folds"]]
+        strategy = cfg["regression"].get("split_strategy", "group_shuffle")
+        folds = [cfg["cv"]["n_splits"], cfg["tuning"].get("cv_folds", 3)]
         dataset_path = cfg["dataset"]["path"]
         cleaning = cfg["cleaning"]
-    except (KeyError, TypeError) as exc:
+    except (KeyError, TypeError, AttributeError) as exc:
         raise ValueError(f"Missing or malformed preparation configuration: {exc}") from exc
     if type(seed) is not int or not 0 <= seed < 2**32:
         raise ValueError("random_state must be an integer in [0, 2**32)")
@@ -83,26 +94,40 @@ class RegressionPreparation:
     groups_train: pd.Series
     groups_test: pd.Series
     baseline_cv: tuple
-    tuning_cv: tuple
     cleaning_log: list
+    tuning_cv: tuple = ()
 
 
-def prepare_regression_data(config_path="config.yaml") -> RegressionPreparation:
-    """Read central settings, clean once, split once, and freeze training CV folds."""
+def prepare_regression_data(config_path="config.yaml", config=None) -> RegressionPreparation:
     path = Path(config_path).resolve()
-    cfg = load_config(path)
+    cfg = load_config(path) if config is None else validate_config(config)
     data_path = Path(cfg["dataset"]["path"])
     if not data_path.is_absolute():
         data_path = path.parent / data_path
     df, log = load_clean(data_path, **cfg["cleaning"])
     options = cfg["regression"]
     X_train, X_test, y_train, y_test = make_split(
-        df, "regression", test_size=options["test_size"],
-        random_state=cfg["random_state"], paid_bookings_only=options["paid_bookings_only"],
+        df,
+        "regression",
+        test_size=options["test_size"],
+        random_state=cfg["random_state"],
+        paid_bookings_only=options["paid_bookings_only"],
     )
-    groups_train, groups_test = regression_group_ids(X_train), regression_group_ids(X_test)
+    # Reuse this holdout and these training-only folds across regression models.
+    groups_train, groups_test = (
+        regression_group_ids(X_train),
+        regression_group_ids(X_test),
+    )
     return RegressionPreparation(
-        X_train, X_test, y_train, y_test, groups_train, groups_test,
+        X_train,
+        X_test,
+        y_train,
+        y_test,
+        groups_train,
+        groups_test,
         grouped_cv_folds(X_train, groups_train, cfg["cv"]["n_splits"]),
-        grouped_cv_folds(X_train, groups_train, cfg["tuning"]["cv_folds"]), log,
+        log,
+        tuning_cv=grouped_cv_folds(
+            X_train, groups_train, cfg["tuning"].get("cv_folds", 3)
+        ),
     )

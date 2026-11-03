@@ -1,38 +1,25 @@
-"""Tests for src/data/load.py.
-
-Most tests use a tiny hand-made table, so they check the cleaning LOGIC and do
-not depend on H2.csv. The last test checks the real file and is skipped when
-the file is not available.
-"""
-
 from pathlib import Path
-
 import pandas as pd
 import pytest
-
 from src.data.load import H2_ROWS, clean, load_clean, load_raw, standardize_text
 
 DATA = Path(__file__).resolve().parents[1] / "data" / "H2.csv"
 
 
 def make_bookings() -> pd.DataFrame:
-    """Five fake bookings, each with a different problem.
-
-    Rows 0 and 2 become exact duplicates after stripping spaces,
-    row 3 has zero guests and row 4 has an impossible ADR.
-    """
-    return pd.DataFrame({
-        "Meal":     ["BB   ", "HB", "BB   ", "SC", "BB"],
-        "Agent":    ["   9", "NULL", "   9", " null ", "7"],
-        "Company":  ["  NULL", "  NULL", "  NULL", "40", "NULL"],
-        "Adults":   [2, 1, 2, 0, 2],
-        "Children": [0, None, 0, 0, 0],
-        "Babies":   [0, 0, 0, 0, 0],
-        "ADR":      [100.0, 80.0, 100.0, 50.0, 5400.0],
-    })
+    return pd.DataFrame(
+        {
+            "Meal": ["BB   ", "HB", "BB   ", "SC", "BB"],
+            "Agent": ["   9", "NULL", "   9", " null ", "7"],
+            "Company": ["  NULL", "  NULL", "  NULL", "40", "NULL"],
+            "Adults": [2, 1, 2, 0, 2],
+            "Children": [0, None, 0, 0, 0],
+            "Babies": [0, 0, 0, 0, 0],
+            "ADR": [100.0, 80.0, 100.0, 50.0, 5400.0],
+        }
+    )
 
 
-# ---- row-level rules -------------------------------------------------------
 def test_strips_padding_spaces():
     out = standardize_text(make_bookings())
     assert out["Meal"].tolist() == ["BB", "HB", "BB", "SC", "BB"]
@@ -57,7 +44,7 @@ def test_single_new_booking_is_supported():
     assert len(out) == 1
     assert out.loc[0, "Meal"] == "HB"
     assert pd.isna(out.loc[0, "Agent"])
-    assert out.loc[0, "LeadTime"] == 30  # numbers are left alone
+    assert out.loc[0, "LeadTime"] == 30
 
 
 def test_input_is_not_modified():
@@ -76,10 +63,9 @@ def test_cleaning_is_deterministic_and_idempotent():
     pd.testing.assert_frame_equal(a, clean(a)[0])
 
 
-# ---- dataset-level rules ---------------------------------------------------
 def test_clean_removes_duplicates_outliers_and_empty_bookings():
     out, log = clean(make_bookings())
-    assert len(out) == 2                      # 5 - 1 duplicate - 1 ADR - 1 zero guests
+    assert len(out) == 2
     assert out["ADR"].max() <= 1000
     assert not out.duplicated().any()
     removed = {row["step"]: row["rows_removed"] for row in log}
@@ -89,15 +75,16 @@ def test_clean_removes_duplicates_outliers_and_empty_bookings():
 
 
 def test_each_rule_can_be_switched_off():
-    out, _ = clean(make_bookings(), drop_duplicates=False,
-                   adr_max=None, drop_zero_guests=False)
+    out, _ = clean(
+        make_bookings(), drop_duplicates=False, adr_max=None, drop_zero_guests=False
+    )
     assert len(out) == 5
 
 
 def test_clean_skips_rules_when_columns_are_absent():
     df = make_bookings().drop(columns=["ADR", "Adults", "Children", "Babies"])
     out, _ = clean(df)
-    assert len(out) == 4  # only the duplicate is removed
+    assert len(out) == 4
 
 
 def test_load_raw_reports_missing_columns(tmp_path):
@@ -107,7 +94,6 @@ def test_load_raw_reports_missing_columns(tmp_path):
         load_raw(path)
 
 
-# ---- the real H2 file --------------------------------------------------------
 @pytest.mark.skipif(not DATA.exists(), reason="data/H2.csv not available")
 def test_real_h2_file():
     raw = load_raw(DATA, expected_rows=H2_ROWS)
@@ -117,20 +103,25 @@ def test_real_h2_file():
     assert not df.duplicated().any()
 
 
-# ---- zero-night stays and ADR floor -----------------------------------------
 def test_zero_night_bookings_are_dropped():
-    df = pd.DataFrame({
-        "StaysInWeekendNights": [0, 1, 0, 0],
-        "StaysInWeekNights":    [0, 0, 2, 0],
-        "ADR": [80.0, 90.0, 100.0, 70.0],
-    })
+    df = pd.DataFrame(
+        {
+            "StaysInWeekendNights": [0, 1, 0, 0],
+            "StaysInWeekNights": [0, 0, 2, 0],
+            "ADR": [80.0, 90.0, 100.0, 70.0],
+        }
+    )
     out, log = clean(df)
     assert len(out) == 2
-    assert {r["step"]: r["rows_removed"] for r in log}["drop bookings with zero nights"] == 2
+    assert {r["step"]: r["rows_removed"] for r in log}[
+        "drop bookings with zero nights"
+    ] == 2
 
 
 def test_zero_nights_rule_can_be_switched_off():
-    df = pd.DataFrame({"StaysInWeekendNights": [0], "StaysInWeekNights": [0], "ADR": [80.0]})
+    df = pd.DataFrame(
+        {"StaysInWeekendNights": [0], "StaysInWeekNights": [0], "ADR": [80.0]}
+    )
     assert len(clean(df, drop_zero_nights=False)[0]) == 1
 
 
@@ -139,19 +130,22 @@ def test_negative_adr_is_dropped_but_zero_adr_is_kept():
     assert out["ADR"].tolist() == [0.0, 120.0]
 
 
-# ---- the two cleaning paths must agree ----------------------------------------
 @pytest.mark.skipif(not DATA.exists(), reason="data/H2.csv not available")
 def test_yaml_cleaning_and_load_cleaning_give_the_same_rows():
-    """notebooks use src/preprocessing/cleaning.py, models use src/data/load.py."""
     from src.preprocessing.cleaning import clean_from_description
+
     root = Path(__file__).resolve().parents[1]
     a, _ = load_clean(DATA)
-    b, _ = clean_from_description("config/datasets/h2.yaml", project_root=root, save=False)
+    b, _ = clean_from_description(
+        "config/datasets/h2.yaml", project_root=root, save=False
+    )
     assert len(a) == len(b)
     assert a["ADR"].sum() == pytest.approx(b["ADR"].sum())
     assert a["IsCanceled"].sum() == b["IsCanceled"].sum()
     assert a["LeadTime"].sum() == b["LeadTime"].sum()
-    # Compare every normalized value in row order, including missingness/IDs.
-    pd.testing.assert_frame_equal(standardize_text(a), standardize_text(b), check_dtype=False)
-    assert len(a) == 53_042
-    assert (a["ADR"] > 0).sum() == 52_320
+    # CSV readers may infer different dtypes even when normalized values match.
+    pd.testing.assert_frame_equal(
+        standardize_text(a), standardize_text(b), check_dtype=False
+    )
+    assert len(a) == 53042
+    assert (a["ADR"] > 0).sum() == 52320
