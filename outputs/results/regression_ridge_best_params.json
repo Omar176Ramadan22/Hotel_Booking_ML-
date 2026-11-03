@@ -1,0 +1,105 @@
+{
+  "model": "ridge",
+  "best_params": {
+    "model__alpha": 0.0001,
+    "preprocess__encode__num__polynomial__degree": 2
+  },
+  "search_space": {
+    "model__alpha": [
+      1e-05,
+      0.0001,
+      0.001,
+      0.01,
+      0.1,
+      1.0,
+      10.0,
+      100.0
+    ],
+    "preprocess__encode__num__polynomial__degree": [
+      1,
+      2
+    ]
+  },
+  "optimization_metric": "RMSE",
+  "cv_folds": 5,
+  "best_cv_rmse": 19.77854895746052,
+  "preprocessing": {
+    "numeric": "median imputation, polynomial features, scaling",
+    "categorical": "Unknown imputation, one-hot encoding"
+  },
+  "configuration": {
+    "dataset": {
+      "path": "data/H2.csv"
+    },
+    "cleaning": {
+      "drop_duplicates": true,
+      "adr_min": 0,
+      "adr_max": 1000,
+      "drop_zero_guests": true,
+      "drop_zero_nights": true
+    },
+    "regression": {
+      "paid_bookings_only": true,
+      "test_size": 0.2
+    },
+    "targets": {
+      "regression": "ADR",
+      "classification": "IsCanceled"
+    },
+    "outputs": {
+      "dir": "outputs"
+    },
+    "random_state": 42,
+    "cv": {
+      "n_splits": 5
+    },
+    "tuning": {
+      "ridge_grid": {
+        "model__alpha": [
+          1e-05,
+          0.0001,
+          0.001,
+          0.01,
+          0.1,
+          1.0,
+          10.0,
+          100.0
+        ],
+        "preprocess__encode__num__polynomial__degree": [
+          1,
+          2
+        ]
+      }
+    }
+  },
+  "frozen": true,
+  "recorded_protocol": {
+    "search_folds": 5,
+    "reported_folds": 5,
+    "cv_score_use": "parameter_selection_not_independent"
+  },
+  "future_unfrozen_protocol": {
+    "search_folds": 3,
+    "comparison_folds": 5,
+    "comparison_score_use": "post_selection_not_independent"
+  },
+  "prediction_policy": {
+    "out_of_training_range": "reject",
+    "negative_finite_output": "clip_zero_with_warning",
+    "stored_test_metrics": "raw_model_outputs"
+  },
+  "holdout_status": "previously_inspected",
+  "polynomial_test_history": [
+    {
+      "alpha": 0.001,
+      "degree": 2,
+      "test_rmse": 20.16793445887395
+    },
+    {
+      "alpha": 0.0001,
+      "degree": 2,
+      "test_rmse": 20.14708736983571,
+      "search_change_reason": "previous_best_alpha_at_training_cv_boundary"
+    }
+  ]
+}

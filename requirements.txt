@@ -3,10 +3,8 @@ numpy
 scikit-learn
 joblib
 xgboost
-optuna
 matplotlib
 seaborn
-jupyter
 jupyterlab
 pyyaml
 pytest

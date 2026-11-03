@@ -1,0 +1,78 @@
+{
+  "model": "xgboost",
+  "best_params": {
+    "model__colsample_bytree": 0.6873761748867334,
+    "model__learning_rate": 0.06178509299200951,
+    "model__max_depth": 8,
+    "model__n_estimators": 430,
+    "model__subsample": 0.7973035063015821
+  },
+  "search_space": {
+    "model__n_estimators": "integers 100 to 500",
+    "model__learning_rate": "loguniform 0.02 to 0.3",
+    "model__max_depth": "integers 3 to 8",
+    "model__subsample": "uniform 0.7 to 1.0",
+    "model__colsample_bytree": "uniform 0.6 to 1.0"
+  },
+  "optimization_metric": "RMSE",
+  "cv_folds": 3,
+  "comparison_cv_folds": 5,
+  "comparison_score_use": "post_selection_comparison_not_independent",
+  "best_cv_rmse": 14.688682352801054,
+  "preprocessing": {
+    "numeric": "median imputation, polynomial features",
+    "categorical": "Unknown imputation, one-hot encoding"
+  },
+  "configuration": {
+    "dataset": {
+      "path": "data/H2.csv"
+    },
+    "cleaning": {
+      "drop_duplicates": true,
+      "adr_min": 0,
+      "adr_max": 1000,
+      "drop_zero_guests": true,
+      "drop_zero_nights": true
+    },
+    "regression": {
+      "frozen_models": [
+        "ridge"
+      ],
+      "paid_bookings_only": true,
+      "test_size": 0.2
+    },
+    "targets": {
+      "regression": "ADR",
+      "classification": "IsCanceled"
+    },
+    "outputs": {
+      "dir": "outputs"
+    },
+    "random_state": 42,
+    "cv": {
+      "n_splits": 5
+    },
+    "tuning": {
+      "n_iter": {
+        "xgboost": 40
+      },
+      "cv_folds": 3,
+      "ridge_grid": {
+        "model__alpha": [
+          1e-05,
+          0.0001,
+          0.001,
+          0.01,
+          0.1,
+          1.0,
+          10.0,
+          100.0
+        ],
+        "preprocess__encode__num__polynomial__degree": [
+          1,
+          2
+        ]
+      }
+    }
+  }
+}
