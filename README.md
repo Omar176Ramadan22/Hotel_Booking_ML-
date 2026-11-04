@@ -10,7 +10,7 @@ GitHub repository: https://github.com/Omar176Ramadan22/Hotel_Booking_ML-
 
 Branch for review: `ridge-regression`.
 
-Frozen implementation commit: [`4e9581b27aaabd47b93fed257dd5759a6ac06a60`](https://github.com/Omar176Ramadan22/Hotel_Booking_ML-/commit/4e9581b27aaabd47b93fed257dd5759a6ac06a60). The following documentation commit records this revision without changing code or saved results.
+Historical Ridge implementation commit (not the uncommitted completion work): [`4e9581b27aaabd47b93fed257dd5759a6ac06a60`](https://github.com/Omar176Ramadan22/Hotel_Booking_ML-/commit/4e9581b27aaabd47b93fed257dd5759a6ac06a60). The following documentation commit records this revision without changing code or saved results.
 
 Submitted ZIP commit (expanded by `git archive`): `$Format:%H$`
 
@@ -76,11 +76,11 @@ hotel-booking-ml/
 
 ## Current status
 
-Ridge is finished and frozen: baseline/tuned models, CV/test tables, diagnostics, input validation, saved-model prediction, and recipe-based refitting. The test suite passes 136 tests. Existing XGBoost baseline/tuned experiments are also recorded in the regression CSVs.
+Ridge, XGBoost and Random Forest are finalized and frozen, with baseline/tuned models and recorded CV/test tables. XGBoost is selected from the comparison CSV and is the default predictor. Current safe tests: 164 passed, 3 deliberately deselected (167 collected); excluded real-data cases would violate this task's no-retraining/no-held-out-prediction constraints. See [the regression comparison](outputs/tables/regression_model_comparison.csv) for recorded metrics and model selection; setup and execution commands are provided below.
 
-Read [the Ridge report](outputs/reports/ridge_model_report.md) for the baseline/tuned comparison, leakage audit, evaluation history, limitations, and team proposals. The test set was previously inspected; it is not a blind holdout. Do not change Ridge code, settings, artifacts, or results to improve its score.
+The test set was previously inspected; it is not a blind holdout. Do not change Ridge code, settings, artifacts, or results to improve its score.
 
-PCA is deferred. Its later separate experiment must fit PCA inside training-fold pipelines, use the frozen CV folds, preserve existing files, and avoid test-set scoring. Classification/LDA, clustering, a third regression model, the complete comparison/selection process, and the final report/presentation remain team work.
+The separate Ridge/XGBoost PCA experiment uses fixed grouped training folds and separate files; see [the PCA experiment results](outputs/experiments/pca/). It never replaces finalized predictors or scores the holdout. Classification/LDA, clustering completion/integration and the consolidated final report/presentation remain team work.
 
 ## Environment setup
 
@@ -125,36 +125,36 @@ The notebook is for exploration. The final implementation will live under `src/`
 From the repository root, check the dataset and tests:
 
 ```powershell
-python main.py analyze
-python -m pytest -q
+python main.py results --task regression
+python -m pytest -q -k "not test_train_real_data_writes_pipeline_and_cv_row and not test_real_h2_end_to_end"
 ```
 
-On a fresh clone, regenerate both frozen Ridge pipelines and their matching bounds files without a search or evaluation:
+On a fresh clone, optionally regenerate missing finalized pipelines and their bounds without a search or evaluation:
 
 ```powershell
-python main.py refit --task regression --model ridge
-python main.py predict --task regression --model ridge --input data/example_booking.json
+python main.py refit --task regression --model all
+python main.py predict --task regression --input data/example_booking.json
 ```
 
 For interactive entry, omit `--input`. Predictions load saved artifacts; they do not retrain. Inputs outside training bounds are rejected, as are unseen categories. The interface normalizes the supported categorical fields and validates arrival dates/weeks. Years after 2017 are currently rejected; alternatives in the report are proposals, not implemented policies.
 
-`train` and `tune` reject frozen Ridge; batch `--model all` skips it. Use `refit` to reproduce its artifacts. Existing Ridge CV/test outputs and diagnostic figures are checked in; do not rerun evaluation or diagnostics to overwrite these frozen results.
+`train`, `tune` and held-out `evaluate` reject all three frozen models; batch training skips them. `python main.py results --task regression` shows recorded selection and metrics. Use `refit` to reproduce missing artifacts. Existing Ridge CV/test outputs and diagnostic figures are checked in; do not rerun evaluation or diagnostics to overwrite these frozen results.
 
-XGBoost training/tuning/evaluation is implemented separately. Classification and clustering CLI tasks remain scaffolds even where teammates have exploratory notebooks/configuration.
+Ridge, XGBoost and Random Forest use the same shared drivers; finalized train/tune/evaluate are blocked. Classification and clustering CLI tasks remain scaffolds even where teammates have exploratory notebooks/configuration.
 
 Every later regression model should reuse the shared preparation:
 
 ```python
-from src.data.preparation import prepare_regression_data
+from src.data.training import prepare_training_data
 
-prepared = prepare_regression_data("config.yaml")
+prepared = prepare_training_data("config.yaml")
 # Use X_train/y_train and the frozen grouped folds for fitting and selection.
 # baseline_cv has 5 folds; tuning_cv has 3 folds for future unfrozen searches.
 ```
 
 The historical tuned Ridge used five folds for both search and reporting; it did not use the later 3/5 protocol. Groups exclude targets/outcomes and use permitted inputs before learned transforms. Learned medians, category lists, agent lists, and scaling stay inside the modeling pipeline.
 
-The earlier [data-preparation audit](outputs/reports/data_preparation_audit.md) is retained as historical context. Current model status and evaluation limitations are documented in [the Ridge report](outputs/reports/ridge_model_report.md).
+The standalone preparation audit and narrative reports are archived outside the repository. Regression methodology remains available in the source code, with numerical evidence in the [CV results](outputs/tables/regression_cv_results.csv) and [historical test results](outputs/tables/regression_test_results.csv).
 
 ## Team contributions
 

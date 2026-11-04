@@ -1,0 +1,67 @@
+{
+  "training_rows": 41867,
+  "numeric": {
+    "LeadTime": {
+      "min": 0.0,
+      "max": 629.0
+    },
+    "ArrivalDateYear": {
+      "min": 2015.0,
+      "max": 2017.0
+    },
+    "ArrivalDateWeekNumber": {
+      "min": 1.0,
+      "max": 53.0
+    },
+    "ArrivalDateDayOfMonth": {
+      "min": 1.0,
+      "max": 31.0
+    },
+    "StaysInWeekendNights": {
+      "min": 0.0,
+      "max": 10.0
+    },
+    "StaysInWeekNights": {
+      "min": 0.0,
+      "max": 25.0
+    },
+    "Adults": {
+      "min": 0.0,
+      "max": 4.0
+    },
+    "Children": {
+      "min": 0.0,
+      "max": 3.0
+    },
+    "Babies": {
+      "min": 0.0,
+      "max": 10.0
+    },
+    "IsRepeatedGuest": {
+      "min": 0.0,
+      "max": 1.0
+    },
+    "PreviousCancellations": {
+      "min": 0.0,
+      "max": 13.0
+    },
+    "PreviousBookingsNotCanceled": {
+      "min": 0.0,
+      "max": 72.0
+    }
+  },
+  "totals": {
+    "guests": {
+      "min": 1.0,
+      "max": 12.0
+    },
+    "nights": {
+      "min": 1.0,
+      "max": 34.0
+    }
+  },
+  "arrival_date": {
+    "min": "2015-07-01",
+    "max": "2017-08-31"
+  }
+}

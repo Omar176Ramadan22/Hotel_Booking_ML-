@@ -1,0 +1,12 @@
+{
+  "model": "xgboost",
+  "stage": "tuned",
+  "rows": 41867,
+  "pooled_training_cv_metrics": {
+    "MAE": 8.642966323427727,
+    "MSE": 207.45764289650955,
+    "RMSE": 14.403389979324643,
+    "R2": 0.867743282776665
+  },
+  "negative_predictions": 2
+}

@@ -3,8 +3,7 @@ from __future__ import annotations
 TARGETS = {"regression": "ADR", "classification": "IsCanceled"}
 # Booking outcomes are unavailable when a new booking is priced.
 OUTCOME_COLUMNS = ["IsCanceled", "ReservationStatus", "ReservationStatusDate"]
-# These fields can change after the booking is created.
-# The assigned room can reveal the final price, so use the reserved room instead.
+# These fields can change later; assigned rooms may reveal the final price.
 POST_BOOKING_COLUMNS = ["AssignedRoomType", "BookingChanges", "DaysInWaitingList"]
 # Parking and requests may be added later; exclude them by default.
 BORDERLINE_COLUMNS = ["RequiredCarParkingSpaces", "TotalOfSpecialRequests"]

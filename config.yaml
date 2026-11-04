@@ -10,7 +10,7 @@ cleaning:
   drop_zero_nights: true
 
 regression:
-  frozen_models: [ridge]
+  frozen_models: [ridge, xgboost, random_forest]
   paid_bookings_only: true
   test_size: 0.2
 
@@ -29,6 +29,7 @@ cv:
 tuning:
   n_iter:
     xgboost: 40
+    random_forest: 15
   cv_folds: 3
   ridge_grid:
     model__alpha: [0.00001, 0.0001, 0.001, 0.01, 0.1, 1.0, 10.0, 100.0]

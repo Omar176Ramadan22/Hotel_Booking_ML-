@@ -42,6 +42,7 @@ def saved_model(tmp_path, monkeypatch):
     joblib.dump(pipeline, artifact)
     write_training_limits(artifact, data, feature_columns("regression")[0])
     monkeypatch.setattr(predict, "ARTIFACT_DIR", tmp_path)
+    monkeypatch.setattr(predict, "default_model", lambda: "ridge")
     return artifact
 
 

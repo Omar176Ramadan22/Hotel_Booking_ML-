@@ -29,6 +29,7 @@ def saved_model(tmp_path, monkeypatch):
         feature_columns("regression")[0],
     )
     monkeypatch.setattr(predict, "ARTIFACT_DIR", tmp_path)
+    monkeypatch.setattr(predict, "default_model", lambda: "ridge")
     return pipeline
 
 
@@ -109,8 +110,8 @@ def test_invalid_json_and_missing_artifact(tmp_path, monkeypatch):
     with pytest.raises(ValueError, match="Invalid JSON"):
         predict.run_predict(input_path=path)
     monkeypatch.setattr(predict, "ARTIFACT_DIR", tmp_path)
-    with pytest.raises(FileNotFoundError, match="Run train or tune"):
-        predict.predict_bookings(EXAMPLE_BOOKING)
+    with pytest.raises(FileNotFoundError, match=r"run: python main\.py refit --task regression --model ridge"):
+        predict.predict_bookings(EXAMPLE_BOOKING, model_name="ridge")
 
 
 def test_diagnostics_use_only_training_rows(tmp_path, monkeypatch):

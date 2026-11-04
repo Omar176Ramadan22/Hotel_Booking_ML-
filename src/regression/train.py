@@ -5,12 +5,14 @@ import joblib
 import pandas as pd
 from sklearn.model_selection import GridSearchCV, cross_validate
 from sklearn.model_selection import RandomizedSearchCV
-from src.data.preparation import load_config, prepare_regression_data
+from src.data.preparation import load_config, prepare_regression_data as prepare_evaluation_data
+from src.data.training import prepare_training_data as prepare_regression_data
 from src.evaluation.metrics import regression_scores
 from src.regression.models import get_pipeline
 from src.regression.models import MODELS
 from src.data.rules import write_training_limits
 from src.features.columns import feature_columns
+from src.regression.artifacts import best_params_path, reproduction_hint, write_metadata, plain_parameters
 
 ARTIFACT_DIR = Path("artifacts")
 SCORING = {
@@ -24,13 +26,13 @@ SCORING = {
 def _check_frozen(model_name, cfg):
     if model_name in cfg["regression"].get("frozen_models", []):
         raise ValueError(
-            f"{model_name} is frozen. Training and tuning are disabled for the finalized experiment."
+            f"{model_name} is frozen. Training and tuning are disabled for the finalized experiment; {reproduction_hint(model_name)}"
         )
 
 
 def _write_row(path, row):
     path.parent.mkdir(parents=True, exist_ok=True)
-    read_options = {"dtype": str, "keep_default_na": False} if row["model"] == "xgboost" else {}
+    read_options = {"dtype": str, "keep_default_na": False}
     rows = pd.read_csv(path, **read_options) if path.exists() else pd.DataFrame()
     if not rows.empty:
         same = (rows["model"] == row["model"]) & (rows["stage"] == row["stage"])
@@ -39,7 +41,7 @@ def _write_row(path, row):
 
 
 def _save_model(name, stage, pipeline, prep, cfg, scores, cv_use, experiment_time):
-    # Final fitting uses only the outer training split after CV has finished.
+    # Fit only outer training rows after CV.
     start = perf_counter()
     pipeline.fit(prep.X_train, prep.y_train)
     fit_time = perf_counter() - start
@@ -47,6 +49,7 @@ def _save_model(name, stage, pipeline, prep, cfg, scores, cv_use, experiment_tim
     artifact = ARTIFACT_DIR / f"regression_{name}_{stage}.joblib"
     joblib.dump(pipeline, artifact)
     write_training_limits(artifact, prep.X_train, feature_columns("regression")[0])
+    write_metadata(artifact, name, stage, pipeline, cfg["random_state"], len(prep.X_train))
     settings = pipeline.get_params()
     if name == "ridge":
         parameters = {
@@ -54,11 +57,12 @@ def _save_model(name, stage, pipeline, prep, cfg, scores, cv_use, experiment_tim
             "numeric_degree": settings["preprocess__encode__num__polynomial__degree"],
         }
     else:
-        keys = list(MODELS[name]["search"]) + [
+        keys = list(MODELS[name]["search"]) + [key for key in (
             "model__tree_method", "model__n_jobs", "model__random_state"
-        ]
+        ) if key in settings]
         parameters = {key.removeprefix("model__"): settings[key] for key in keys}
         parameters["numeric_degree"] = settings["preprocess__encode__num__polynomial__degree"]
+    parameters = plain_parameters(parameters)
     row = {
         "model": name,
         "stage": stage,
@@ -95,6 +99,8 @@ def _save_model(name, stage, pipeline, prep, cfg, scores, cv_use, experiment_tim
 def run_train(model_name):
     cfg = load_config()
     _check_frozen(model_name, cfg)
+    if model_name == "random_forest":
+        print("Random Forest baseline uses 100 unrestricted trees; its artifact may be about 260 MB.", flush=True)
     prep = prepare_regression_data()
     pipeline = get_pipeline(model_name, {"model__random_state": cfg["random_state"]})
     start = perf_counter()
@@ -135,6 +141,8 @@ def run_tune(model_name):
             "n_iter": cfg["tuning"]["n_iter"][model_name],
             "random_state": cfg["random_state"],
         }
+        if model_name == "random_forest":
+            search_options["verbose"] = 2
     search = search_class(
         pipeline,
         grid,
@@ -163,13 +171,16 @@ def run_tune(model_name):
     (directory / "results").mkdir(parents=True, exist_ok=True)
     details = {
         "model": model_name,
-        "best_params": search.best_params_,
-        "search_space": settings.get("search_description", grid),
+        "best_params": plain_parameters(search.best_params_),
+        "search_space": settings.get("search_text", settings.get("search_description", grid)),
         "optimization_metric": "RMSE",
         "cv_folds": len(prep.tuning_cv),
         "comparison_cv_folds": len(prep.baseline_cv),
         "comparison_score_use": "post_selection_comparison_not_independent",
         "best_cv_rmse": float(-search.best_score_),
+        "n_iter": len(search.cv_results_["params"]),
+        "seed": cfg["random_state"],
+        "search_boundaries": search_boundaries(search.best_params_, grid),
         "preprocessing": {
             "numeric": "median imputation, polynomial features, scaling",
             "categorical": "Unknown imputation, one-hot encoding",
@@ -178,6 +189,7 @@ def run_tune(model_name):
     }
     if not settings["scale"]:
         details["preprocessing"]["numeric"] = "median imputation, polynomial features"
+    details["any_best_value_at_edge"] = any(item["at_edge"] is True for item in details["search_boundaries"].values())
     (directory / f"results/regression_{model_name}_best_params.json").write_text(
         json.dumps(details, indent=2) + "\n", encoding="utf-8"
     )
@@ -195,17 +207,38 @@ def run_tune(model_name):
     return row
 
 
-def run_refit(model_name):
-    if model_name != "ridge":
-        raise ValueError("refit currently supports the frozen Ridge recipe only.")
-    recipe_path = Path("outputs/results/regression_ridge_best_params.json")
+def search_boundaries(parameters, space):
+    boundaries = {}
+    for name, value in plain_parameters(parameters).items():
+        choices = space[name]
+        if isinstance(choices, list):
+            limits = [min(choices), max(choices)] if all(isinstance(item, (int, float)) for item in choices) else None
+        else:
+            lower, upper = choices.support()
+            limits = [float(lower), float(upper)]
+        boundaries[name] = {
+            "value": value, "limits": limits,
+            "at_edge": bool(value in limits) if limits is not None else None,
+        }
+    return boundaries
+
+
+def run_refit(model_name, output_dir=None):
+    if model_name not in MODELS:
+        raise ValueError(f"Unknown regression model: {model_name}")
+    recipe_path = best_params_path(model_name)
+    if not recipe_path.exists():
+        raise FileNotFoundError(f"Missing best-parameters recipe: {recipe_path}; {reproduction_hint(model_name)}")
     recipe = json.loads(recipe_path.read_text(encoding="utf-8"))
-    if recipe.get("model") != "ridge" or recipe.get("frozen") is not True:
+    if recipe.get("model") != model_name:
+        raise ValueError(f"Expected a {model_name} recipe.")
+    if model_name == "ridge" and recipe.get("frozen") is not True:
         raise ValueError("Expected a frozen Ridge recipe.")
     cfg = recipe["configuration"]
-    # Use the recorded split and cleaning settings rather than a new experiment.
+    # Reuse the recorded cleaning rules and split.
     prep = prepare_regression_data(config=cfg)
-    ARTIFACT_DIR.mkdir(parents=True, exist_ok=True)
+    directory = ARTIFACT_DIR if output_dir is None else Path(output_dir)
+    directory.mkdir(parents=True, exist_ok=True)
     paths = []
     for stage in ("baseline", "tuned"):
         params = {"model__random_state": cfg["random_state"]}
@@ -213,11 +246,12 @@ def run_refit(model_name):
             params.update(recipe["best_params"])
         pipeline = get_pipeline(model_name, params)
         pipeline.fit(prep.X_train, prep.y_train)
-        artifact = ARTIFACT_DIR / f"regression_ridge_{stage}.joblib"
+        artifact = directory / f"regression_{model_name}_{stage}.joblib"
         joblib.dump(pipeline, artifact)
         write_training_limits(artifact, prep.X_train, feature_columns("regression")[0])
+        write_metadata(artifact, model_name, stage, pipeline, cfg["random_state"], len(prep.X_train))
         paths.append(artifact)
-        print(f"ridge {stage}: refitted frozen recipe on {len(prep.X_train):,} training rows; saved {artifact} and bounds")
+        print(f"{model_name} {stage}: fresh refit on {len(prep.X_train):,} training rows; saved {artifact}, bounds and metadata")
     return paths
 
 
@@ -230,10 +264,15 @@ def run_evaluate(model_name):
     missing = [str(path) for path in paths.values() if not path.exists()]
     if missing:
         raise FileNotFoundError(
-            f"Missing saved pipelines: {', '.join(missing)}. Run train and tune first."
+            f"Missing saved pipelines: {', '.join(missing)}; {reproduction_hint(model_name)}"
         )
     cfg = load_config()
-    prep = prepare_regression_data()
+    if model_name in cfg["regression"].get("frozen_models", []):
+        raise ValueError(
+            f"{model_name} is finalized; held-out evaluation is disabled. "
+            "Use: python main.py results --task regression for recorded results."
+        )
+    prep = prepare_evaluation_data()
     rows = []
     for stage, path in paths.items():
         pipeline = joblib.load(path)

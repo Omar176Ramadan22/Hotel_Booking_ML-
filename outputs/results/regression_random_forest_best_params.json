@@ -1,0 +1,112 @@
+{
+  "model": "random_forest",
+  "best_params": {
+    "model__max_depth": 30,
+    "model__max_features": 1.0,
+    "model__min_samples_leaf": 2,
+    "model__n_estimators": 107
+  },
+  "search_space": {
+    "model__n_estimators": "integers 100 to 300",
+    "model__max_depth": "choices 10, 20, 30",
+    "model__min_samples_leaf": "choices 2, 5, 10",
+    "model__max_features": "choices sqrt, 0.5, 1.0"
+  },
+  "optimization_metric": "RMSE",
+  "cv_folds": 3,
+  "comparison_cv_folds": 5,
+  "comparison_score_use": "post_selection_comparison_not_independent",
+  "best_cv_rmse": 15.839803911330627,
+  "n_iter": 15,
+  "seed": 42,
+  "search_boundaries": {
+    "model__max_depth": {
+      "value": 30,
+      "limits": [
+        10,
+        30
+      ],
+      "at_edge": true
+    },
+    "model__max_features": {
+      "value": 1.0,
+      "limits": null,
+      "at_edge": null
+    },
+    "model__min_samples_leaf": {
+      "value": 2,
+      "limits": [
+        2,
+        10
+      ],
+      "at_edge": true
+    },
+    "model__n_estimators": {
+      "value": 107,
+      "limits": [
+        100.0,
+        300.0
+      ],
+      "at_edge": false
+    }
+  },
+  "preprocessing": {
+    "numeric": "median imputation, polynomial features",
+    "categorical": "Unknown imputation, one-hot encoding"
+  },
+  "configuration": {
+    "dataset": {
+      "path": "data/H2.csv"
+    },
+    "cleaning": {
+      "drop_duplicates": true,
+      "adr_min": 0,
+      "adr_max": 1000,
+      "drop_zero_guests": true,
+      "drop_zero_nights": true
+    },
+    "regression": {
+      "frozen_models": [
+        "ridge",
+        "xgboost"
+      ],
+      "paid_bookings_only": true,
+      "test_size": 0.2
+    },
+    "targets": {
+      "regression": "ADR",
+      "classification": "IsCanceled"
+    },
+    "outputs": {
+      "dir": "outputs"
+    },
+    "random_state": 42,
+    "cv": {
+      "n_splits": 5
+    },
+    "tuning": {
+      "n_iter": {
+        "xgboost": 40,
+        "random_forest": 15
+      },
+      "cv_folds": 3,
+      "ridge_grid": {
+        "model__alpha": [
+          1e-05,
+          0.0001,
+          0.001,
+          0.01,
+          0.1,
+          1.0,
+          10.0,
+          100.0
+        ],
+        "preprocess__encode__num__polynomial__degree": [
+          1,
+          2
+        ]
+      }
+    }
+  },
+  "any_best_value_at_edge": true
+}

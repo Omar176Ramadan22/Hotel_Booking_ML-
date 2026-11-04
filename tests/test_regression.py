@@ -73,7 +73,7 @@ def test_evaluate_missing_pipelines_fails_before_loading_data(tmp_path, monkeypa
 
     monkeypatch.setattr(train, "prepare_regression_data", unexpected_preparation)
     with pytest.raises(
-        FileNotFoundError, match="Missing saved pipelines.*Run train and tune"
+        FileNotFoundError, match=r"Missing saved pipelines.*run: python main\.py refit --task regression --model ridge"
     ):
         train.run_evaluate("ridge")
 
@@ -193,6 +193,7 @@ def test_xgboost_tuning_two_candidates(tmp_path, monkeypatch):
         tuning_cv=grouped_cv_folds(X, groups, 3),
     )
     cfg = load_config()
+    cfg["regression"]["frozen_models"].remove("xgboost")
     cfg["tuning"]["n_iter"]["xgboost"] = 2
     cfg["outputs"]["dir"] = str(tmp_path)
     monkeypatch.setattr(train, "load_config", lambda: cfg)
@@ -256,6 +257,26 @@ def test_cli_refit_dispatch(monkeypatch):
     assert called == ["ridge"]
 
 
-def test_refit_rejects_unsupported_model():
-    with pytest.raises(ValueError, match="frozen Ridge recipe only"):
-        train.run_refit("xgboost")
+def test_refit_rejects_unsupported_model(tmp_path, monkeypatch):
+    import json
+    from test_preprocessing import make_bookings
+
+    recipe = json.loads(train.Path("outputs/results/regression_xgboost_best_params.json").read_text())
+    data = make_bookings()
+    training_only = SimpleNamespace(X_train=data.drop(columns="ADR"), y_train=data.ADR)
+    monkeypatch.setattr(train, "prepare_regression_data", lambda config: training_only)
+    output = tmp_path / "empty_artifacts"
+    monkeypatch.setattr("sys.argv", [
+        "main.py", "refit", "--task", "regression", "--model", "xgboost",
+        "--output-dir", str(output),
+    ])
+    main.main()
+    for stage in ("baseline", "tuned"):
+        artifact = output / f"regression_xgboost_{stage}.joblib"
+        pipeline = joblib.load(artifact)
+        assert pipeline.named_steps["model"].random_state == recipe["configuration"]["random_state"]
+        if stage == "tuned":
+            for name, value in recipe["best_params"].items():
+                assert pipeline.get_params()[name] == value
+        assert json.loads(artifact.with_suffix(".bounds.json").read_text())["training_rows"] == len(data)
+        assert json.loads(train.Path(str(artifact) + ".meta.json").read_text())["model"] == "xgboost"

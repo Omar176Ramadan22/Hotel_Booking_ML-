@@ -1,0 +1,227 @@
+{
+  "models": {
+    "ridge": {
+      "model": "ridge",
+      "best_params": {
+        "model__alpha": 0.0001,
+        "preprocess__encode__num__polynomial__degree": 2
+      },
+      "search_space": {
+        "model__alpha": [
+          1e-05,
+          0.0001,
+          0.001,
+          0.01,
+          0.1,
+          1.0,
+          10.0,
+          100.0
+        ],
+        "preprocess__encode__num__polynomial__degree": [
+          1,
+          2
+        ]
+      },
+      "optimization_metric": "RMSE",
+      "cv_folds": 5,
+      "best_cv_rmse": 19.77854895746052,
+      "preprocessing": {
+        "numeric": "median imputation, polynomial features, scaling",
+        "categorical": "Unknown imputation, one-hot encoding"
+      },
+      "configuration": {
+        "dataset": {
+          "path": "data/H2.csv"
+        },
+        "cleaning": {
+          "drop_duplicates": true,
+          "adr_min": 0,
+          "adr_max": 1000,
+          "drop_zero_guests": true,
+          "drop_zero_nights": true
+        },
+        "regression": {
+          "paid_bookings_only": true,
+          "test_size": 0.2
+        },
+        "targets": {
+          "regression": "ADR",
+          "classification": "IsCanceled"
+        },
+        "outputs": {
+          "dir": "outputs"
+        },
+        "random_state": 42,
+        "cv": {
+          "n_splits": 5
+        },
+        "tuning": {
+          "ridge_grid": {
+            "model__alpha": [
+              1e-05,
+              0.0001,
+              0.001,
+              0.01,
+              0.1,
+              1.0,
+              10.0,
+              100.0
+            ],
+            "preprocess__encode__num__polynomial__degree": [
+              1,
+              2
+            ]
+          }
+        }
+      },
+      "frozen": true,
+      "recorded_protocol": {
+        "search_folds": 5,
+        "reported_folds": 5,
+        "cv_score_use": "parameter_selection_not_independent"
+      },
+      "future_unfrozen_protocol": {
+        "search_folds": 3,
+        "comparison_folds": 5,
+        "comparison_score_use": "post_selection_not_independent"
+      },
+      "prediction_policy": {
+        "out_of_training_range": "reject",
+        "negative_finite_output": "clip_zero_with_warning",
+        "stored_test_metrics": "raw_model_outputs"
+      },
+      "holdout_status": "previously_inspected",
+      "polynomial_test_history": [
+        {
+          "alpha": 0.001,
+          "degree": 2,
+          "test_rmse": 20.16793445887395
+        },
+        {
+          "alpha": 0.0001,
+          "degree": 2,
+          "test_rmse": 20.14708736983571,
+          "search_change_reason": "previous_best_alpha_at_training_cv_boundary"
+        }
+      ]
+    },
+    "xgboost": {
+      "model": "xgboost",
+      "best_params": {
+        "model__colsample_bytree": 0.6873761748867334,
+        "model__learning_rate": 0.06178509299200951,
+        "model__max_depth": 8,
+        "model__n_estimators": 430,
+        "model__subsample": 0.7973035063015821
+      },
+      "search_space": {
+        "model__n_estimators": "integers 100 to 500",
+        "model__learning_rate": "loguniform 0.02 to 0.3",
+        "model__max_depth": "integers 3 to 8",
+        "model__subsample": "uniform 0.7 to 1.0",
+        "model__colsample_bytree": "uniform 0.6 to 1.0"
+      },
+      "optimization_metric": "RMSE",
+      "cv_folds": 3,
+      "comparison_cv_folds": 5,
+      "comparison_score_use": "post_selection_comparison_not_independent",
+      "best_cv_rmse": 14.688682352801054,
+      "preprocessing": {
+        "numeric": "median imputation, polynomial features",
+        "categorical": "Unknown imputation, one-hot encoding"
+      },
+      "configuration": {
+        "dataset": {
+          "path": "data/H2.csv"
+        },
+        "cleaning": {
+          "drop_duplicates": true,
+          "adr_min": 0,
+          "adr_max": 1000,
+          "drop_zero_guests": true,
+          "drop_zero_nights": true
+        },
+        "regression": {
+          "frozen_models": [
+            "ridge"
+          ],
+          "paid_bookings_only": true,
+          "test_size": 0.2
+        },
+        "targets": {
+          "regression": "ADR",
+          "classification": "IsCanceled"
+        },
+        "outputs": {
+          "dir": "outputs"
+        },
+        "random_state": 42,
+        "cv": {
+          "n_splits": 5
+        },
+        "tuning": {
+          "n_iter": {
+            "xgboost": 40
+          },
+          "cv_folds": 3,
+          "ridge_grid": {
+            "model__alpha": [
+              1e-05,
+              0.0001,
+              0.001,
+              0.01,
+              0.1,
+              1.0,
+              10.0,
+              100.0
+            ],
+            "preprocess__encode__num__polynomial__degree": [
+              1,
+              2
+            ]
+          }
+        }
+      }
+    }
+  },
+  "seed": 42,
+  "training_rows": 41867,
+  "folds": [
+    {
+      "fold": 1,
+      "fit_rows": 33493,
+      "validation_rows": 8374,
+      "membership_sha256": "5c5bb181984aa063f6cc478991a00468c1c6f916cc5c8ddc36eaab411cb9b23c"
+    },
+    {
+      "fold": 2,
+      "fit_rows": 33493,
+      "validation_rows": 8374,
+      "membership_sha256": "45e65064be29a8777859dd6291677c974cf96adfa79cc437d6a9c19695621ef7"
+    },
+    {
+      "fold": 3,
+      "fit_rows": 33494,
+      "validation_rows": 8373,
+      "membership_sha256": "a1e6c8a961d7c2a6839502bdf5d2dd08019c45f77d7a54bf79e2d2fdd08384bb"
+    },
+    {
+      "fold": 4,
+      "fit_rows": 33494,
+      "validation_rows": 8373,
+      "membership_sha256": "9d387a5a89da0f8f80d770b1f067c44df5c732888b30384dbee9b7d613d13134"
+    },
+    {
+      "fold": 5,
+      "fit_rows": 33494,
+      "validation_rows": 8373,
+      "membership_sha256": "9d008825d498fe6c2a7381f07c076a0591036bd3e85750541b4a393aceae0755"
+    }
+  ],
+  "variance_threshold": 0.95,
+  "solver": "full",
+  "representation": "existing dense encoding; experimental full-column scaling in both paired controls",
+  "selection": "predefined 95% variance; no target-based component search",
+  "artifacts": "artifacts\\experiments\\pca",
+  "heldout_used": false
+}

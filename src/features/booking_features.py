@@ -12,7 +12,7 @@ class BookingFeatureBuilder(BaseEstimator, TransformerMixin):
         self.top_n_agents = top_n_agents
 
     def fit(self, X, y=None):
-        # CV calls fit separately on each training fold.
+        # Learn top agents within each training fold.
         self.top_agents_: list[str] = []
         if self.top_n_agents > 0:
             agents = standardize_text(X)["Agent"].dropna()
@@ -24,11 +24,11 @@ class BookingFeatureBuilder(BaseEstimator, TransformerMixin):
     def transform(self, X) -> pd.DataFrame:
         check_is_fitted(self, "top_agents_")
         df = standardize_text(X)
-        # Prediction forms may omit these optional fields entirely.
+        # New bookings may omit these optional fields.
         for col in ("Agent", "Company", "Children", "Country"):
             if col not in df.columns:
                 df[col] = pd.NA
-        # Build presence flags before removing the raw identifier columns.
+        # Create presence flags before dropping raw IDs.
         df["HasAgent"] = df["Agent"].notna().astype(int)
         df["HasCompany"] = df["Company"].notna().astype(int)
         if self.top_n_agents > 0:
@@ -39,7 +39,7 @@ class BookingFeatureBuilder(BaseEstimator, TransformerMixin):
                 np.where(agent.isin(self.top_agents_), agent, "Other"),
             )
         df = df.drop(columns=["Agent", "Company"])
-        # Apply the same fixed missing-value defaults to training and new bookings.
+        # Use the same fixed defaults for training and prediction.
         df["Children"] = pd.to_numeric(df["Children"], errors="coerce").fillna(0)
         df["Country"] = df["Country"].fillna("Unknown")
         # sklearn expects np.nan rather than pd.NA in categorical inputs.

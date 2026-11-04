@@ -1,0 +1,16 @@
+feature,importance
+ReservedRoomType_F,0.1433559
+ReservedRoomType_A,0.12310159
+ReservedRoomType_G,0.09258244
+AgentTop_9,0.057847064
+Meal_HB,0.032880127
+ReservedRoomType_D,0.032802366
+ReservedRoomType_B,0.032329965
+Adults,0.026681334
+ArrivalDateMonth_January,0.020608444
+AgentTop_1,0.020290514
+Children,0.019673415
+ReservedRoomType_E,0.018093437
+DistributionChannel_Direct,0.017762512
+MarketSegment_Direct,0.017681453
+ArrivalDateYear,0.017004268

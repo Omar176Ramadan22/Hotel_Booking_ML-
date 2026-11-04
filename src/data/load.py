@@ -3,7 +3,6 @@ from pathlib import Path
 import pandas as pd
 from src.data.rules import GUEST_COLUMNS, NIGHT_COLUMNS, positive_total
 
-# Expected schema of the published City Hotel dataset.
 EXPECTED_COLUMNS = [
     "IsCanceled",
     "LeadTime",
@@ -49,7 +48,7 @@ def standardize_text(data: pd.DataFrame | dict | list[dict]) -> pd.DataFrame:
         df = pd.DataFrame(data)
     else:
         df = data.copy()
-    # Agent and Company are identifiers, so 9 and 9.0 must become the same text.
+    # Normalize ID spellings such as 9 and 9.0.
     for col in ID_COLUMNS:
         if col in df.columns:
             df[col] = df[col].map(_id_to_text)
@@ -113,7 +112,7 @@ def clean(
             }
         )
 
-    # These fixed cleaning rules learn no statistics from the full dataset.
+    # Cleaning uses fixed rules, not fitted statistics.
     n = len(df)
     df = standardize_text(df)
     record("strip whitespace + missing markers -> NaN", n, len(df))

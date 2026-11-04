@@ -33,7 +33,7 @@ def remove_duplicates(df: pd.DataFrame) -> pd.DataFrame:
     return df.drop_duplicates(keep="first").reset_index(drop=True)
 
 
-# Generic cleaning uses fixed rules; learned preprocessing belongs in the pipeline.
+# Keep learned preprocessing inside the model pipeline.
 def generic_clean(df: pd.DataFrame, cfg: dict) -> tuple[pd.DataFrame, dict]:
     report = {"rows_in": len(df)}
     if cfg.get("trim_whitespace", True):

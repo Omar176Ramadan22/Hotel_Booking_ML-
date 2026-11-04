@@ -56,4 +56,4 @@ For regression, prefer `prepare_regression_data()` from `src.data.preparation`
 to consume the central config and reuse grouped holdout/CV assignments across
 models. Group keys precede learned top-agent/rare-category pooling. Group overlap
 is zero; the current pooling still causes 23 encoded test inputs to match training
-inputs. See `outputs/reports/data_preparation_audit.md` for this remaining TA decision.
+inputs. This overlap was recorded in the historical preparation audit, now archived outside the repository.

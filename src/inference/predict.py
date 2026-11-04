@@ -15,6 +15,8 @@ from src.data.rules import (
 )
 from src.features.columns import feature_columns
 from src.regression.models import MODELS
+from src.regression.artifacts import reproduction_hint
+from src.evaluation.comparison import selected_result
 
 ARTIFACT_DIR = Path("artifacts")
 CATEGORY_FIELDS = (
@@ -133,17 +135,22 @@ def normalize_categories(data, pipeline):
     return data
 
 
-def predict_bookings(bookings, model_name="ridge", stage="tuned"):
+def default_model():
+    return selected_result()["model"]
+
+
+def predict_bookings(bookings, model_name=None, stage="tuned"):
+    model_name = model_name or default_model()
     if model_name not in MODELS or stage not in {"baseline", "tuned"}:
         raise ValueError("Select a supported model and baseline or tuned stage.")
     data = validate_bookings(bookings)
     artifact = ARTIFACT_DIR / f"regression_{model_name}_{stage}.joblib"
     if not artifact.exists():
-        raise FileNotFoundError(f"Missing {artifact}. Run train or tune first.")
+        raise FileNotFoundError(f"Missing {artifact}; {reproduction_hint(model_name)}")
     bounds_path = artifact.with_suffix(".bounds.json")
     if not bounds_path.exists():
         raise FileNotFoundError(
-            f"Missing training bounds: {bounds_path}. Restore the matching bounds file."
+            f"Missing training bounds: {bounds_path}. Restore the matching bounds file or {reproduction_hint(model_name)}"
         )
     limits = json.loads(bounds_path.read_text(encoding="utf-8"))
     validate_training_limits(data, limits)
@@ -172,7 +179,8 @@ def prompt_booking():
     return booking
 
 
-def run_predict(model_name="ridge", input_path=None, stage="tuned"):
+def run_predict(model_name=None, input_path=None, stage="tuned"):
+    model_name = model_name or default_model()
     if input_path is None:
         bookings = prompt_booking()
     else:

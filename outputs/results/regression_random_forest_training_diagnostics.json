@@ -1,0 +1,13 @@
+{
+  "model": "random_forest",
+  "stage": "tuned",
+  "rows": 41867,
+  "source": "in_sample_training_not_cv_or_holdout",
+  "training_metrics": {
+    "MAE": 4.301228993315624,
+    "MSE": 68.87046991341415,
+    "RMSE": 8.298823405363809,
+    "R2": 0.9560942554961909
+  },
+  "negative_predictions": 0
+}
