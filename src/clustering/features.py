@@ -15,3 +15,29 @@ EXCLUDED_COLUMNS = [
     "Company",                # ID number, mostly empty
     "Country",                # too many categories
 ]
+
+# Number columns (will be scaled)
+NUMERIC_COLUMNS = [
+    "LeadTime",                # days between booking and arrival
+    "TotalNights",             # weekend + week nights
+    "TotalGuests",             # adults + children + babies
+    "ADR",                     # price per night
+    "TotalOfSpecialRequests",
+]
+
+# 0/1 columns (we leave them as 0/1, no scaling)
+FLAG_COLUMNS = [
+    "IsRepeatedGuest",
+    "HasKids",                 # 1 if children or babies > 0
+    "HadPreviousCancellation", # 1 if PreviousCancellations > 0
+]
+
+# Text columns (will be one-hot encoded)
+CATEGORICAL_COLUMNS = [
+    "ArrivalDateMonth",
+    "Meal",
+    "MarketSegment",
+    "DistributionChannel",
+    "CustomerType",
+    "ReservedRoomType",
+]
