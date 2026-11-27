@@ -1,3 +1,4 @@
+from src.data.load import load_clean
 # features.py
 # Which columns we use for clustering.
 # Clustering has no target, so we don't split into train/test.
@@ -41,3 +42,20 @@ CATEGORICAL_COLUMNS = [
     "CustomerType",
     "ReservedRoomType",
 ]
+
+def load_cluster_data(path="data/H2.csv"):
+    # load and clean the data the same way as the rest of the team
+    df, log = load_clean(path)
+
+    # 4 rows have no value for Children, treat them as 0
+    df["Children"] = df["Children"].fillna(0)
+
+    # make the new columns
+    df["TotalNights"] = df["StaysInWeekendNights"] + df["StaysInWeekNights"]
+    df["TotalGuests"] = df["Adults"] + df["Children"] + df["Babies"]
+    df["HasKids"] = ((df["Children"] + df["Babies"]) > 0).astype(int)
+    df["HadPreviousCancellation"] = (df["PreviousCancellations"] > 0).astype(int)
+
+    # keep only the columns we chose
+    columns = NUMERIC_COLUMNS + FLAG_COLUMNS + CATEGORICAL_COLUMNS
+    return df[columns]
